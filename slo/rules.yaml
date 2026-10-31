@@ -1,0 +1,94 @@
+# SLO: 99.9% of /departures requests succeed (non-5xx) over 30 days.
+# Error budget = 0.1% = 0.001. Burn rate 1 = spending the budget exactly in 30 days.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: departures-api-slo
+  namespace: departures
+  labels: {app: departures-api}
+spec:
+  groups:
+    # ---------- Part 1: recording rules (the SLI at several windows) ----------
+    - name: departures-api-sli
+      rules:
+        - record: job:slo_errors_per_request:ratio_rate5m
+          expr: |
+            sum by (job) (rate(http_requests_total{job="departures-api",code=~"5.."}[5m]))
+            /
+            sum by (job) (rate(http_requests_total{job="departures-api"}[5m]))
+        - record: job:slo_errors_per_request:ratio_rate30m
+          expr: |
+            sum by (job) (rate(http_requests_total{job="departures-api",code=~"5.."}[30m]))
+            /
+            sum by (job) (rate(http_requests_total{job="departures-api"}[30m]))
+        - record: job:slo_errors_per_request:ratio_rate1h
+          expr: |
+            sum by (job) (rate(http_requests_total{job="departures-api",code=~"5.."}[1h]))
+            /
+            sum by (job) (rate(http_requests_total{job="departures-api"}[1h]))
+        - record: job:slo_errors_per_request:ratio_rate2h
+          expr: |
+            sum by (job) (rate(http_requests_total{job="departures-api",code=~"5.."}[2h]))
+            /
+            sum by (job) (rate(http_requests_total{job="departures-api"}[2h]))
+        - record: job:slo_errors_per_request:ratio_rate6h
+          expr: |
+            sum by (job) (rate(http_requests_total{job="departures-api",code=~"5.."}[6h]))
+            /
+            sum by (job) (rate(http_requests_total{job="departures-api"}[6h]))
+        - record: job:slo_errors_per_request:ratio_rate1d
+          expr: |
+            sum by (job) (rate(http_requests_total{job="departures-api",code=~"5.."}[1d]))
+            /
+            sum by (job) (rate(http_requests_total{job="departures-api"}[1d]))
+
+    # ---------- Part 2: alerts (multi-window, multi-burn-rate) ----------
+    - name: departures-api-slo-alerts
+      rules:
+        # 14.4x for 1h = 2% of the monthly budget gone. Wake someone up.
+        - alert: DeparturesErrorBudgetFastBurn
+          expr: |
+            job:slo_errors_per_request:ratio_rate1h{job="departures-api"} > (14.4 * 0.001)
+            and
+            job:slo_errors_per_request:ratio_rate5m{job="departures-api"} > (14.4 * 0.001)
+          for: 2m
+          labels: {severity: page, slo: departures-availability}
+          annotations:
+            summary: "departures-api is burning its error budget about 14x too fast"
+            description: "1h error ratio is {{ $value | humanizePercentage }} (SLO allows 0.1%). Riders may see blank departure boards."
+            runbook_url: "https://github.com/praveenbhatk8s/departures-slo-kit/blob/main/runbooks/high-burn.md"
+
+        # 6x for 6h = 5% of the monthly budget gone. Still a page, less urgent.
+        - alert: DeparturesErrorBudgetSlowBurn
+          expr: |
+            job:slo_errors_per_request:ratio_rate6h{job="departures-api"} > (6 * 0.001)
+            and
+            job:slo_errors_per_request:ratio_rate30m{job="departures-api"} > (6 * 0.001)
+          for: 15m
+          labels: {severity: page, slo: departures-availability}
+          annotations:
+            summary: "departures-api is burning its error budget about 6x too fast"
+            description: "6h error ratio is {{ $value | humanizePercentage }} (SLO allows 0.1%)."
+            runbook_url: "https://github.com/praveenbhatk8s/departures-slo-kit/blob/main/runbooks/high-burn.md"
+
+        # 3x for 1 day = 10% of the budget. Not urgent: a ticket for working hours.
+        - alert: DeparturesErrorBudgetTicket
+          expr: |
+            job:slo_errors_per_request:ratio_rate1d{job="departures-api"} > (3 * 0.001)
+            and
+            job:slo_errors_per_request:ratio_rate2h{job="departures-api"} > (3 * 0.001)
+          for: 1h
+          labels: {severity: ticket, slo: departures-availability}
+          annotations:
+            summary: "departures-api is slowly eating its error budget"
+            description: "1d error ratio is {{ $value | humanizePercentage }}. Plan a fix this week."
+
+        # If Prometheus can't scrape the app, every SLO alert above goes silent.
+        # Alerting on the blind spot is as important as alerting on errors.
+        - alert: DeparturesTargetDown
+          expr: absent(up{job="departures-api"} == 1)
+          for: 5m
+          labels: {severity: page}
+          annotations:
+            summary: "Prometheus cannot scrape departures-api: SLO alerts are blind"
+            runbook_url: "https://github.com/praveenbhatk8s/departures-slo-kit/blob/main/runbooks/high-burn.md"

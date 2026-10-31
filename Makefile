@@ -1,10 +1,10 @@
 CLUSTER := slo
 IMAGE   := departures-api:0.1.0
 
-.PHONY: up down cluster monitoring image deploy break heal
+.PHONY: up down cluster monitoring image deploy slo break heal
 
 ## Create everything from scratch
-up: cluster monitoring image deploy
+up: cluster monitoring image deploy slo
 
 cluster:
 	k3d cluster list $(CLUSTER) >/dev/null 2>&1 || k3d cluster create $(CLUSTER) --wait
@@ -36,3 +36,12 @@ break:
 ## End the incident
 heal:
 	helm upgrade departures-api deploy/chart -n departures --reuse-values --set errorRate=0 --wait
+
+
+## Load SLO recording rules and alerts
+slo:
+	kubectl apply -f slo/rules.yaml
+
+## Start an incident: 30% of requests fail (fast enough to demo the page)
+break:
+	helm upgrade departures-api deploy/chart -n departures --reuse-values --set errorRate=0.3 --wait
