@@ -1,0 +1,13 @@
+prometheus:
+  prometheusSpec:
+    # Pick up ServiceMonitors and PrometheusRules from ANY Helm release,
+    # not only ones labelled for this chart. Without these two lines,
+    # Prometheus silently ignores our app and our SLO rules.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    scrapeInterval: 15s        # faster than the 30s default, so the demo reacts quickly
+    evaluationInterval: 15s
+    retention: 2d
+
+grafana:
+  adminPassword: admin         # local lab only
