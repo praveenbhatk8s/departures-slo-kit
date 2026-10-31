@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: departures-api
+  labels: {app: departures-api}
+spec:
+  selector:
+    matchLabels: {app: departures-api}
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: departures-api
+description: Departure board API with SLO instrumentation
+version: 0.1.0
+appVersion: "0.1.0"

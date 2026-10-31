@@ -1,0 +1,15 @@
+image:
+  repository: departures-api
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent    # use the image k3d imported; never try to pull it
+
+replicas: 2
+errorRate: "0"                # "0.05" = 5% of requests fail on purpose
+
+resources:
+  requests: {cpu: 50m, memory: 32Mi}
+  limits:   {memory: 64Mi}
+
+loadgen:
+  enabled: true
+  intervalSeconds: "0.2"      # about 5 requests per second

@@ -1,0 +1,23 @@
+{{- if .Values.loadgen.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: departures-loadgen
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: departures-loadgen}
+  template:
+    metadata:
+      labels: {app: departures-loadgen}
+    spec:
+      containers:
+        - name: curl
+          image: curlimages/curl:8.10.1
+          command: ["sh", "-c"]
+          args:
+            - while true; do curl -s -o /dev/null http://departures-api/departures; sleep {{ .Values.loadgen.intervalSeconds }}; done
+          resources:
+            requests: {cpu: 10m, memory: 16Mi}
+            limits:   {memory: 32Mi}
+{{- end }}

@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: departures-api
+  labels: {app: departures-api}
+spec:
+  selector: {app: departures-api}
+  ports:
+    - {name: http, port: 80, targetPort: http}

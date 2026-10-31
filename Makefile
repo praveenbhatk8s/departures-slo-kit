@@ -1,10 +1,10 @@
 CLUSTER := slo
 IMAGE   := departures-api:0.1.0
 
-.PHONY: up down cluster monitoring image
+.PHONY: up down cluster monitoring image deploy break heal
 
 ## Create everything from scratch
-up: cluster monitoring image
+up: cluster monitoring image deploy
 
 cluster:
 	k3d cluster list $(CLUSTER) >/dev/null 2>&1 || k3d cluster create $(CLUSTER) --wait
@@ -23,3 +23,16 @@ image:
 ## Delete the whole lab
 down:
 	k3d cluster delete $(CLUSTER)
+
+## Install or upgrade the app
+deploy:
+	helm upgrade --install departures-api deploy/chart \
+		--namespace departures --create-namespace --wait
+
+## Start an incident: 5% of requests fail
+break:
+	helm upgrade departures-api deploy/chart -n departures --reuse-values --set errorRate=0.05 --wait
+
+## End the incident
+heal:
+	helm upgrade departures-api deploy/chart -n departures --reuse-values --set errorRate=0 --wait
